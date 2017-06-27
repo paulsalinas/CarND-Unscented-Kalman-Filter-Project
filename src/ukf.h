@@ -11,6 +11,11 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 class UKF {
+  MatrixXd AugmentedSigmaPoints();
+  void SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t);
+  void PredictMeanAndCovariance(VectorXd* x_out, MatrixXd* P_out);
+  
+  
 public:
 
   ///* initially set to false, set to true in first call of ProcessMeasurement
