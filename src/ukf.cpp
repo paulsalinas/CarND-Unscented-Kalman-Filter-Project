@@ -74,18 +74,9 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  std::cout << "Measuring" << std::endl;
   
   /**/
   if (!is_initialized_) {
-    /**
-     TODO:
-     * Initialize the state ekf_.x_ with the first measurement.
-     * Create the covariance matrix.
-     * Remember: you'll need to convert radar from polar to cartesian coordinates.
-     */
-    // first measurement
-    //cout << "UKF: " << endl;
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
       /**
        Convert radar from polar to cartesian coordinates and initialize state.
@@ -130,30 +121,16 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;	//dt - expressed in seconds
   time_us_ = meas_package.timestamp_;
   
-  
-  //cout << "dt = " << dt <<endl<<endl;
-  
-  //Use small dt to allow for turn effect
-  const double diff_t = 0.1;
-  
-  while (dt > diff_t){
-    Prediction(diff_t);
-    dt -= diff_t;
-  }
-  
-  Prediction(dt); // update states only if dt is above 0.001
+  Prediction(dt); 
   
   /**/
   
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
-    std::cout << "Measuring Radar" << std::endl;
     UpdateRadar(meas_package);
   } else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
-    std::cout << "Measuring Laser" << std::endl;
     UpdateLidar(meas_package);
   }
   
-  std::cout << "End Measuring" << std::endl;
 }
 
 /**
@@ -168,7 +145,6 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
-  std::cout << "Prediction" << std::endl;
   
   MatrixXd X_sig = AugmentedSigmaPoints();
   SigmaPointPrediction(&X_sig, delta_t);
@@ -418,7 +394,6 @@ MatrixXd UKF::AugmentedSigmaPoints() {
    ******************************************************************************/
   
   //print result
-  std::cout << "Xsig_aug = " << std::endl << Xsig_aug << std::endl;
   
   //write result
   return Xsig_aug;
