@@ -30,11 +30,11 @@ UKF::UKF() {
           0, 0, 0, 0, 1;
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 5;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
   // Paul: this looks a bit high for rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 1;
 
   // Laser measurement noise standard deviation position1 in m
   std_laspx_ = 0.15;
@@ -61,7 +61,10 @@ UKF::UKF() {
   
   n_x_ = 5;
   n_aug_ = n_x_ + 2;
-  lambda_ = 3-n_aug_;
+  lambda_ = 3 - n_aug_;
+  
+  //create matrix with predicted sigma points as columns
+  Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
 }
 
 UKF::~UKF() {}
@@ -71,12 +74,86 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
+  std::cout << "Measuring" << std::endl;
+  
+  /**/
+  if (!is_initialized_) {
+    /**
+     TODO:
+     * Initialize the state ekf_.x_ with the first measurement.
+     * Create the covariance matrix.
+     * Remember: you'll need to convert radar from polar to cartesian coordinates.
+     */
+    // first measurement
+    //cout << "UKF: " << endl;
+    if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+      /**
+       Convert radar from polar to cartesian coordinates and initialize state.
+       */
+      float rho = meas_package.raw_measurements_(0);
+      float psi =  meas_package.raw_measurements_(1);
+      float drho =  meas_package.raw_measurements_(2);
+      
+      x_(0) = rho*cos(psi);
+      x_(1) = rho*sin(psi);
+      x_(2) = drho; // Approximate value as dth is not known
+      x_(3) = psi; // Approximate value as dth is not known
+      x_(4) = 0; // Approximate value as dth is not known
+      if (fabs(rho)>0.001){
+        is_initialized_ = true;
+      }
+    }
+    else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+      /**
+       Initialize state.
+       */
+      x_(0) =meas_package.raw_measurements_(0);
+      x_(1) =meas_package.raw_measurements_(1);
+      x_(2) = 0; // Approximate value of 0
+      x_(3) = 0; // Approximate value of 0
+      x_(4) = 0; // Approximate value of 0
+      
+      if (sqrt(pow(x_(0),2)+pow(x_(1),2))>0.001){
+        is_initialized_ = true;
+      }
+      
+    }
+    
+    // done initializing, no need to predict or update
+    
+    time_us_ = meas_package.timestamp_;
+    return;
+    
+  }
+  
+  //compute the time elapsed between the current and previous measurements
+  float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;	//dt - expressed in seconds
+  time_us_ = meas_package.timestamp_;
+  
+  
+  //cout << "dt = " << dt <<endl<<endl;
+  
+  //Use small dt to allow for turn effect
+  const double diff_t = 0.1;
+  
+  while (dt > diff_t){
+    Prediction(diff_t);
+    dt -= diff_t;
+  }
+  
+  Prediction(dt); // update states only if dt is above 0.001
+  
+  /**/
   
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    std::cout << "Measuring Radar" << std::endl;
     UpdateRadar(meas_package);
   } else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    std::cout << "Measuring Laser" << std::endl;
     UpdateLidar(meas_package);
   }
+  
+  std::cout << "End Measuring" << std::endl;
 }
 
 /**
@@ -91,6 +168,7 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
+  std::cout << "Prediction" << std::endl;
   
   MatrixXd X_sig = AugmentedSigmaPoints();
   SigmaPointPrediction(&X_sig, delta_t);
@@ -340,7 +418,7 @@ MatrixXd UKF::AugmentedSigmaPoints() {
    ******************************************************************************/
   
   //print result
-  //  std::cout << "Xsig_aug = " << std::endl << Xsig_aug << std::endl;
+  std::cout << "Xsig_aug = " << std::endl << Xsig_aug << std::endl;
   
   //write result
   return Xsig_aug;
@@ -348,8 +426,6 @@ MatrixXd UKF::AugmentedSigmaPoints() {
 
 void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t) {
   
-  //create matrix with predicted sigma points as columns
-  Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
   
   /*******************************************************************************
    * Student part begin
@@ -411,7 +487,7 @@ void UKF::PredictMeanAndCovariance(VectorXd* x_out, MatrixXd* P_out) {
   
   
   //create vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
+  VectorXd weights = VectorXd(2 * n_aug_ + 1);
   
   //create vector for predicted state
   VectorXd x = VectorXd(n_x_);
